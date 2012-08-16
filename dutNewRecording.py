@@ -30,6 +30,8 @@ from gi.repository import GdkX11
 from gi.repository import GUdev
 Gdk.threads_init ()
 
+class mode:
+    TWOCAM, SCREENCAST = range (2)
 
 class NewRecording:
     def __init__(self, mainWindow):
@@ -39,6 +41,7 @@ class NewRecording:
         self.busSig2 = None
         self.recordingTitle = None
         self.secondaryDevice = "/dev/video0" #Default recording device
+        self.primaryDevice = "Screen"
 
         self.dialog = Gtk.Dialog ("Create recoding",
                                   mainWindow,
@@ -63,13 +66,12 @@ class NewRecording:
         #Add available video4linux devices
         devices = GUdev.Client ().query_by_subsystem ("video4linux")
 
+
         for device in devices:
             secondaryCapture.append_text (device.get_name ())
+            primaryCapture.append_text (device.get_name ())
 
         secondaryCaptureLabel = Gtk.Label ("Secondary capture:")
-
-        primaryCapture.set_active (0)
-#        secondaryCapture.set_active (0)
 
         devicesBox = Gtk.HBox ()
         devicesBox.pack_start (primaryCaptureLabel, False, False, 3)
@@ -112,34 +114,62 @@ class NewRecording:
         self.player = None
         self.dialog.destroy ()
 
+    #TODO make sure you can't select e.g. video0 primary and video0 secondary
     def secondary_capture_changed (self, combo):
         print ("secondary changed")
         deviceName = combo.get_active_text ()
         self.secondaryDevice = "/dev/"+deviceName
-        #Update the v4l element's device property
-        v4l = self.player.get_by_name ("cam")
+
         self.player.set_state (gst.STATE_READY)
+        #Update the v4l element's device property
+
+        v4l = self.player.get_by_name ("cam1")
+        v4l.set_locked_state (False)
         v4l.set_state (gst.STATE_NULL)
+
+        v4l.set_property ("device", self.secondaryDevice)
+
+        self.player.set_state (gst.STATE_PLAYING)
+
+
+    def primary_capture_changed (self, combo):
+        deviceName = combo.get_active_text ()
+        self.primaryDevice = "/dev/"+deviceName
+
+        if (deviceName == "Screen"):
+            self.video_preview_screencast_webcam ()
+            return
+        #If we're not running in two cam mode already set it up
+        elif (self.mode != mode.TWOCAM):
+            self.video_preview_webcam_webcam ()
+
+        self.player.set_state (gst.STATE_READY)
+
+        v4l = self.player.get_by_name ("cam2")
+        v4l.set_locked_state (False)
+        v4l.set_state (gst.STATE_NULL)
+
+        #Update the v4l element's device property
         v4l.set_property ("device", self.secondaryDevice)
         self.player.set_state (gst.STATE_PLAYING)
 
 
-
-    def primary_capture_changed (self, combo):
-        print ("primary changed")
-
     def window_real (self,wef2):
         print ("drawable realised")
-        self.video_preview ()
+        self.video_preview_screencast_webcam ()
 
-    def video_preview (self):
+    def video_preview_screencast_webcam (self):
 
+        if (self.player):
+            self.player.set_state(gst.STATE_NULL)
+
+        self.mode = mode.SCREENCAST
 
         screen = Gdk.get_default_root_window ().get_display ().get_screen (0)
         posY = str (screen.get_height () - 240)
         posX = str (screen.get_width () - 320)
 
-        self.player = gst.parse_launch ("""v4l2src device=/dev/video0 name="cam" !
+        self.player = gst.parse_launch ("""v4l2src device=/dev/video0 name="cam1" !
                                        videoscale ! queue ! videoflip
                                        method=horizontal-flip !
                                        video/x-raw-yuv,height=240,framerate=15/1
@@ -149,6 +179,39 @@ class NewRecording:
                                        xvimagesink  sync=false       ximagesrc
                                        use-damage=false show-pointer=true  !
                                        videoscale ! video/x-raw-rgb,framerate=15/1 ! ffmpegcolorspace ! video/x-raw-yuv ! mix.""")
+
+
+        self.player.set_state(gst.STATE_PLAYING)
+
+        bus = self.player.get_bus()
+        bus.add_signal_watch()
+        bus.enable_sync_message_emission()
+        self.busSig1 = bus.connect("message", self.on_message)
+        self.busSig2 = bus.connect("sync-message::element",
+                                   self.on_sync_message)
+
+    def video_preview_webcam_webcam (self):
+
+        self.mode = mode.TWOCAM
+
+        if (self.player):
+            self.player.set_state(gst.STATE_NULL)
+
+        posY =str (0)
+        posX = str (0)
+
+        self.player = gst.parse_launch ("""v4l2src device=/dev/video0 name="cam1" !
+                                       videoscale ! queue ! videoflip
+                                       method=horizontal-flip !
+                                       video/x-raw-yuv,height=240,framerate=15/1
+                                       ! videomixer name=mix sink_0::xpos=0
+                                       sink_0::ypos=0 sink_1::xpos="""+posX+"""
+                                       sink_1::ypos="""+posY+""" !
+                                       xvimagesink  sync=false
+                                       v4l2src device=/dev/video1 name="cam2" !
+                                        videoscale ! queue ! videoflip
+                                        method=horizontal-flip !
+                                        video/x-raw-yuv ! mix.""")
 
 
         self.player.set_state(gst.STATE_PLAYING)
