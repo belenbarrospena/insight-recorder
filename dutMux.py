@@ -30,17 +30,15 @@ class Muxer:
 
       self.projectDir = projectDir
 
-      screen = Gdk.get_default_root_window ().get_display ().get_screen (0)
-      posY = str (screen.get_height () - 240)
-      posX = str (screen.get_width () - 320)
-
-      screencastLocation = "\""+projectDir+"/screencast-dut.webm\""
-      webcamLocation = "\""+projectDir+"/webcam-dut.webm\""
+      primaryLocation = "\""+projectDir+"/screencast-dut.webm\""
+      secondaryLocation = "\""+projectDir+"/webcam-dut.webm\""
       outLocation = "\""+projectDir+"/user-testing.webm\""
       finalLocation = "\""+projectDir+"/final.webm\""
 
+      #posX, posY = self.get_primary_video_info (primaryLocation)
+
       gstPipe = """filesrc
-      location="""+webcamLocation+""" name=filein !
+      location="""+secondaryLocation+""" name=filein !
       matroskademux name=demux1 ! queue !
       vp8dec ! videorate force-fps=15/1 !
       video/x-raw-yuv,width=320,height=240,framerate=15/1 !
@@ -50,7 +48,7 @@ class Muxer:
       sink_1::ypos="""+posY+""" ! vp8enc
       quality=10 speed=2 threads=4 ! webmmux name=outmux !
       filesink location="""+outLocation+"""
-      filesrc  location="""+screencastLocation+"""
+      filesrc  location="""+primaryLocation+"""
       ! matroskademux name=demux2 ! queue !
       vp8dec ! videorate force-fps=15/1 !
       video/x-raw-yuv,framerate=15/1 ! mix."""
@@ -82,6 +80,19 @@ class Muxer:
 
       pipebus2.add_signal_watch ()
       pipebus2.connect ("message", self.pipe2_changed_cb)
+
+
+    def get_primary_video_info (self, location):
+        pipe = gst.parse_launch ("filesrc name=src location="+location+" ! fakesink")
+
+        pipe.set_state (gst.STATE_READY)
+
+        stru = pipe.get_static_pad ("src").get_caps ().get_structure (0)
+
+        print (stru['format'])
+        print (stru.get_name ())
+
+
 
 
 

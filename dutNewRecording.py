@@ -123,11 +123,10 @@ class NewRecording:
         self.player.set_state (gst.STATE_READY)
         #Update the v4l element's device property
 
-        v4l = self.player.get_by_name ("cam1")
-        v4l.set_locked_state (False)
-        v4l.set_state (gst.STATE_NULL)
+        cam1 = self.player.get_by_name ("cam1")
+        cam1.set_state (gst.STATE_NULL)
 
-        v4l.set_property ("device", self.secondaryDevice)
+        cam1.set_property ("device", self.secondaryDevice)
 
         self.player.set_state (gst.STATE_PLAYING)
 
@@ -145,12 +144,16 @@ class NewRecording:
 
         self.player.set_state (gst.STATE_READY)
 
-        v4l = self.player.get_by_name ("cam2")
-        v4l.set_locked_state (False)
-        v4l.set_state (gst.STATE_NULL)
+        cam2 = self.player.get_by_name ("cam2")
+        cam1 = self.player.get_by_name ("cam1")
+
+        cam2.set_state (gst.STATE_NULL)
+        cam1.set_state (gst.STATE_NULL)
 
         #Update the v4l element's device property
-        v4l.set_property ("device", self.secondaryDevice)
+        cam2.set_property ("device", self.secondaryDevice)
+        cam1.set_property ("device", self.primaryDevice)
+
         self.player.set_state (gst.STATE_PLAYING)
 
 
@@ -197,22 +200,20 @@ class NewRecording:
         if (self.player):
             self.player.set_state(gst.STATE_NULL)
 
-        posY =str (0)
-        posX = str (0)
-
-        self.player = gst.parse_launch ("""v4l2src device=/dev/video0 name="cam1" !
-                                       videoscale ! queue ! videoflip
-                                       method=horizontal-flip !
-                                       video/x-raw-yuv,height=240,framerate=15/1
-                                       ! videomixer name=mix sink_0::xpos=0
-                                       sink_0::ypos=0 sink_1::xpos="""+posX+"""
-                                       sink_1::ypos="""+posY+""" !
-                                       xvimagesink  sync=false
-                                       v4l2src device=/dev/video1 name="cam2" !
-                                        videoscale ! queue ! videoflip
-                                        method=horizontal-flip !
-                                        video/x-raw-yuv ! mix.""")
-
+        self.player = gst.parse_launch ("""
+                        v4l2src device=/dev/video0 name="cam1" ! queue !
+                        videoflip method=horizontal-flip !
+                        videoscale  add-borders=1 !
+                        video/x-raw-yuv,width=320,height=240,framerate=15/1,pixel-aspect-ratio=1/1 !                           videomixer name=mix sink_0::xpos=0
+                                   sink_0::ypos=0 sink_1::xpos=704
+                                   sink_1::ypos=528 !
+                        xvimagesink  sync=false
+                        v4l2src device=/dev/video1 name="cam2" !
+                        queue ! videoflip method=horizontal-flip !
+                        videoscale add-borders=1 !
+                        video/x-raw-yuv,width=1024,height=768,pixel-aspect-ratio=1/1 !
+                        mix.
+                                        """)
 
         self.player.set_state(gst.STATE_PLAYING)
 
@@ -260,12 +261,3 @@ class NewRecording:
             return info
         else:
             return None
-
-
-
-
-
-
-
-
-
