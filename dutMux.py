@@ -30,8 +30,8 @@ class Muxer:
 
       self.projectDir = projectDir
 
-      primaryLocation = "\""+projectDir+"/screencast-dut.webm\""
-      secondaryLocation = "\""+projectDir+"/webcam-dut.webm\""
+      primaryLocation = "\""+projectDir+"/primary-dut.webm\""
+      secondaryLocation = "\""+projectDir+"/secondary-dut.webm\""
       outLocation = "\""+projectDir+"/user-testing.webm\""
       finalLocation = "\""+projectDir+"/final.webm\""
 
@@ -56,11 +56,6 @@ class Muxer:
 
       self.element = gst.parse_launch (gstPipe)
 
-      #temp
-      wefwef =  self.element.get_by_name ("filein")
-      print (wefwef.get_property ("location"))
-      #tempp end
-
       pipebus = self.element.get_bus ()
 
       pipebus.add_signal_watch ()
@@ -80,20 +75,6 @@ class Muxer:
 
       pipebus2.add_signal_watch ()
       pipebus2.connect ("message", self.pipe2_changed_cb)
-
-
-    def get_primary_video_info (self, location):
-        pipe = gst.parse_launch ("filesrc name=src location="+location+" ! fakesink")
-
-        pipe.set_state (gst.STATE_READY)
-
-        stru = pipe.get_static_pad ("src").get_caps ().get_structure (0)
-
-        print (stru['format'])
-        print (stru.get_name ())
-
-
-
 
 
     def pipe2_changed_cb (self, bus, message):
@@ -143,7 +124,6 @@ class Muxer:
     def record (self, start):
       if start == 1:
         print ("Start mux record")
-        #GLib.timeout_add_seconds (1, self.pipe_report, self.element)
         self.element.set_state (gst.STATE_PLAYING)
 
         self.element.get_state (gst.CLOCK_TIME_NONE)

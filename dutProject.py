@@ -60,6 +60,7 @@ class dutProject:
             i += 1
             recording = "recording-"+str(i)
 
+            dutMain.enable_buttons ()
 
     def dump (self, dutMain, cols):
         listStore = dutMain.listStore
