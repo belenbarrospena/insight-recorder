@@ -56,7 +56,9 @@ class dutProject:
                               self.parser.getint (recording, "duration"),
                               False,
                               False,
-                              self.parser.getint (recording, "progress")])
+                              self.parser.getint (recording, "progress"),
+                              self.parser.getint (recording, "xpos"),
+                              self.parser.getint (recording, "ypos")])
             i += 1
             recording = "recording-"+str(i)
 

@@ -40,6 +40,7 @@ except ImportError:
 import time
 import shutil
 from datetime import timedelta
+from datetime import datetime
 import sys
 import signal
 
@@ -51,15 +52,15 @@ import dutNewRecording
 import dutProject
 
 class m:
-    TITLE, DATE, DURATION, EXPORT, DELETE, PROGRESS = range (6)
+    TITLE, DATE, DURATION, EXPORT, DELETE, PROGRESS, POSX, POSY = range (8)
 
 class dutMain:
     def __init__(self):
 
-        self.webcam = None
-        self.screencast = None
+        self.primary = None
+        self.secondary = None
         self.mux = None
-        self.dut = None
+
         self.projectDir = None
         self.projectLabel = None
         self.listStore = None
@@ -125,7 +126,8 @@ class dutMain:
 
         self.recordingDeleteButton.connect("clicked", self.delete_button_clicked_cb)
 
-        self.listStore = Gtk.ListStore (str, str, int, bool, bool, int)
+        self.listStore = Gtk.ListStore (str, str, int, bool, bool, int,
+                                        int, int)
 
 
         recordingsView = Gtk.TreeView (model=self.listStore)
@@ -195,6 +197,9 @@ class dutMain:
         self.mainWindow.show_all()
 
         self.currentRecording = dutNewRecording.NewRecording (self.mainWindow)
+
+        self.currentRecording.dialog.connect ("response",
+                                               self.new_record_setup_done)
 
         #argv always contains at least the execuratable as the first item
         if (len (sys.argv) > 1):
@@ -281,7 +286,6 @@ class dutMain:
 
         dialog.set_do_overwrite_confirmation (True)
 
-
         response = dialog.run ()
 
         if response == Gtk.ResponseType.OK:
@@ -338,7 +342,11 @@ class dutMain:
             return
 
         recordingDir = self.projectDir+"/"+self.listStore.get_value (encodeItem, m.DATE)
-        self.mux = dutMux.Muxer (recordingDir)
+        posX = self.listStore.get_value (encodeItem, m.POSX)
+        posY = self.listStore.get_value (encodeItem, m.POSY)
+
+        self.mux = dutMux.Muxer (recordingDir, posX, posY)
+
         GLib.timeout_add (500, self.update_progress_bar, encodeItem)
         print ("run muxer")
         self.mux.record (1)
@@ -400,48 +408,62 @@ class dutMain:
 
 
     def new_record_setup_done (self, dialog, response):
+
+        self.currentRecording.close ()
+
         if (response == Gtk.ResponseType.CANCEL):
-            dialog.hide ()
             return
 
-        datetime = datetime.today().strftime ("%d-%m-%H%M%S")
+        dateStamp = datetime.today().strftime ("%d-%m-%H%M%S")
         currentRecording = self.currentRecording
         # Create a dir for this recording
-        recordingDir = self.create_new_dir (datetime)
+        recordingDir = self.create_new_dir (dateStamp)
 
-        self.listItr = self.listStore.append ([currentRecording,
-                                              datetime,
-                                              0, #duration
-                                              False, False, 0])
+        self.listItr = self.listStore.append ([currentRecording.recordingTitle,
+                                               dateStamp,
+                                               0, #duration
+                                               False, False, 0,
+                                               currentRecording.posX,
+                                               currentRecording.posY])
         self.mainWindow.iconify ()
         self.icon.set_visible (True)
 
-        self.webcam = dutWebcamRecord.Webcam (recordingDir,
-                                              currentRecording)
-        self.screencast = dutScreencastRecord.Screencast (recordingDir)
+        print ("secondary source "+currentRecording.secondarySource)
+        print ("primary source "+currentRecording.primarySource)
 
-        self.webcam.record (1)
-        self.screencast.record (1)
+        if (currentRecording.primarySource == "Screen"):
+            self.primary = dutScreencastRecord.Screencast (recordingDir+"/primary-dut.webm")
+        else:
+            self.primary = dutWebcamRecord.Webcam (recordingDir+"/primary-dut.webm", currentRecording.primarySource,
+             currentRecording.primarySourceWidth,
+             currentRecording.primarySourceHeight)
+
+
+        self.secondary = dutWebcamRecord.Webcam  (recordingDir+"/secondary-dut.webm", currentRecording.secondarySource,
+         currentRecording.secondarySourceWidth,
+         currentRecording.secondarySourceHeight)
+
+        self.primary.record (1)
+        self.secondary.record (1)
 
     def new_record_button_clicked_cb (self, button):
          # Open dialog for recording settings
-         self.currentRecording.dialog.run ()
-         self.currentRecording.dialog.connect ("response",
-                                               self.new_record_setup_done)
+         self.currentRecording.open ()
+
     def stop_record (self, button):
-        self.webcam.record (0)
-        self.screencast.record (0)
-        duration = self.webcam.get_duration ()
+        self.primary.record (0)
+        self.secondary.record (0)
+
+        duration = self.primary.get_duration ()
 
         #duration to seconds
         duration = round ((duration*0.000000001))
-        print (duration)
 
         self.listStore.set_value (self.listItr, m.DURATION, int (duration))
 
 
-        self.webcam = None
-        self.screencast = None
+        self.primary = None
+        self.secondary = None
 
         #Show the window again
         self.mainWindow.deiconify ()

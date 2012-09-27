@@ -58,7 +58,7 @@ class NewRecording:
 
         # UI Elements for create recording dialog
         label = Gtk.Label (label="Recording name:", halign=Gtk.Align.START)
-        entry = Gtk.Entry ()
+        self.entry = Gtk.Entry ()
         self.primaryCombo = Gtk.ComboBoxText ()
         self.primaryCombo.connect ("changed", self.primary_capture_changed)
         self.primaryCombo.set_title ("Primary Combo")
@@ -107,7 +107,7 @@ class NewRecording:
         contentArea = self.dialog.get_content_area ()
         contentArea.set_spacing (8)
         contentArea.add (label)
-        contentArea.add (entry)
+        contentArea.add (self.entry)
         contentArea.add (devicesBox)
         contentArea.add (self.playerWindow)
         contentArea.add (audioBox)
@@ -117,7 +117,6 @@ class NewRecording:
         self.samePrimaryAlert.hide ()
         self.sameSecondaryAlert.hide ()
 
-        self.recordingTitle = entry.get_text ()
 
     def secondary_capture_changed (self, combo):
         print ("secondary changed")
@@ -207,16 +206,21 @@ class NewRecording:
         self.secondarySourceHeight = 240
         self.secondarySourceWidth = 320
 
-        posY = str (self.primarySourceHeight - self.secondarySourceHeight)
-        posX = str (self.primarySourceWidth - self.secondarySourceWidth)
+
+        self.posY = self.primarySourceHeight - self.secondarySourceHeight
+        self.posX = self.primarySourceWidth - self.secondarySourceWidth
+
+        posYStr = str (self.posY)
+        posXStr = str (self.posX)
+
 
         self.player = gst.parse_launch ("""v4l2src device=/dev/video0 name="cam2" !
                                        videoscale ! queue ! videoflip
                                        method=horizontal-flip !
                                        video/x-raw-yuv,height=240,framerate=15/1
                                        ! videomixer name=mix sink_0::xpos=0
-                                       sink_0::ypos=0 sink_1::xpos="""+posX+"""
-                                       sink_1::ypos="""+posY+""" !
+                                       sink_0::ypos=0 sink_1::xpos="""+posXStr+"""
+                                       sink_1::ypos="""+posYStr+""" !
                                        xvimagesink  sync=false       ximagesrc
                                        use-damage=false show-pointer=true  !
                                        videoscale ! video/x-raw-rgb,framerate=15/1 ! ffmpegcolorspace ! video/x-raw-yuv ! mix.""")
@@ -243,6 +247,9 @@ class NewRecording:
         self.primarySourceWidth = 1024
         self.secondarySourceHeight = 240
         self.secondarySourceWidth = 320
+
+        self.posY = 528
+        self.posX = 704
 
         self.player = gst.parse_launch ("""
                         v4l2src device=/dev/video0 name="cam2" ! queue !
@@ -295,12 +302,27 @@ class NewRecording:
 
             Gdk.threads_leave ()
 
-    def get_new_recording_info (self):
-        if self.response == Gtk.ResponseType.ACCEPT:
-            #TODO DONT USE timedate in folder structure
-            timeStamp = datetime.today().strftime("%d-%m-%H%M%S")
-            print (self.recordingTitle)
-            info = ([self.recordingTitle, timeStamp, self.secondaryDevice])
-            return info
-        else:
-            return None
+    def close (self):
+        self.recordingTitle = self.entry.get_text ()
+
+        self.dialog.hide ()
+
+        #Make sure that the cameras aren't in a locked state state
+        cam2 = self.player.get_by_name ("cam2")
+        cam1 = self.player.get_by_name ("cam1")
+
+        if (cam2 != None):
+            cam2.set_locked_state (False)
+
+        if (cam1 != None):
+            cam1.set_locked_state (False)
+
+        self.player.set_state (gst.STATE_NULL)
+        self.player.get_state (gst.STATE_NULL)
+        self.player = None
+
+    def open (self):
+        self.dialog.show ()
+        self.secondaryCombo.set_active (-1)
+        self.primaryCombo.set_active (-1)
+        self.video_preview_screencast_webcam ()

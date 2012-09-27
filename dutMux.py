@@ -26,7 +26,7 @@ import time
 import subprocess
 
 class Muxer:
-    def __init__(self, projectDir):
+    def __init__(self, projectDir, posX, posY):
 
       self.projectDir = projectDir
 
@@ -44,8 +44,8 @@ class Muxer:
       video/x-raw-yuv,width=320,height=240,framerate=15/1 !
       queue ! videomixer name=mix
       sink_0::xpos=0 sink_0::ypos=0
-      sink_1::xpos="""+posX+"""
-      sink_1::ypos="""+posY+""" ! vp8enc
+      sink_1::xpos="""+str (posX)+"""
+      sink_1::ypos="""+str (posY)+""" ! vp8enc
       quality=10 speed=2 threads=4 ! webmmux name=outmux !
       filesink location="""+outLocation+"""
       filesrc  location="""+primaryLocation+"""
@@ -53,6 +53,7 @@ class Muxer:
       vp8dec ! videorate force-fps=15/1 !
       video/x-raw-yuv,framerate=15/1 ! mix."""
 
+      print (gstPipe)
 
       self.element = gst.parse_launch (gstPipe)
 
@@ -63,7 +64,7 @@ class Muxer:
 
       #second pass add audio - we could do this in the above pipeline but due to a bug it doesn't quite work..
       gstPipe = """filesrc
-      location="""+webcamLocation+""" ! queue ! matroskademux !
+      location="""+secondaryLocation+""" ! queue ! matroskademux !
       vorbisparse ! audio/x-vorbis !  queue ! outmux.audio_0
       filesrc location="""+outLocation+""" ! queue !
       matroskademux ! video/x-vp8 ! queue ! outmux.video_0 webmmux
@@ -105,8 +106,8 @@ class Muxer:
         positionMs, format = self.element.query_position (gst.FORMAT_TIME, None)
         durationMs, format = self.element.query_duration (gst.FORMAT_TIME, None)
 
-        duration = durationMs*0.000000001
-        position = positionMs*0.000000001
+        duration = round (durationMs*0.000000001)
+        position = round (positionMs*0.000000001)
 
         print ("position %f" % position)
         print ("duration %f" % duration)

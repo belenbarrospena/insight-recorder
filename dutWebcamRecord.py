@@ -22,21 +22,24 @@
 import gst
 
 class Webcam:
-    def __init__(self, projectDir, device):
+    def __init__(self, fileOutputLocation, device, width, height):
       self.duration = 0
+      widthStr = str (width)
+      heightStr = str (height)
 
-      webcamLocation = "\""+projectDir+"/webcam-dut.webm\""
-
-      self.element = gst.parse_launch ("""v4l2src device=/dev/video0 ! videorate
+      self.element = gst.parse_launch ("""v4l2src device="""+device+""" ! videorate
                                        force-fps=15/1 ! queue !
                                        videoflip method=horizontal-flip !
-                                       video/x-raw-yuv,width=320,height=240 !
-                                       vp8enc mode=1 quality=7 speed=2 ! queue ! mux. alsasrc !
-                                       audio/x-raw-int,rate=48000,channels=1,depth=16
-                                       ! queue ! audioconvert ! queue !
+                                       videoscale add-borders=1 !
+                                       video/x-raw-yuv,width="""+widthStr+""",
+                                       height="""+heightStr+""" !
+                                       vp8enc mode=1 quality=7 speed=2 !
+                                       queue ! mux. alsasrc !
+                                       audio/x-raw-int,rate=48000,channels=1,depth=16 !
+                                       queue ! audioconvert ! queue !
                                        vorbisenc ! queue ! mux.
                                        webmmux name=mux ! filesink
-                                       location="""+webcamLocation+"""""")
+                                       location="""+fileOutputLocation+"""""")
 
       pipebus = self.element.get_bus ()
 
