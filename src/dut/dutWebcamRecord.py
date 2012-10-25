@@ -19,7 +19,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses>
 #
 
-import gst
+from gi.repository import Gst
 
 class Webcam:
     def __init__(self, fileOutputLocation, device, width, height, Vflip):
@@ -31,7 +31,7 @@ class Webcam:
       if Vflip == True:
           flip = " videoflip method=vertical-flip !"
 
-      self.element = gst.parse_launch ("""v4l2src device="""+device+""" ! videorate
+      self.element = Gst.parse_launch ("""v4l2src device="""+device+""" ! videorate
                                        force-fps=15/1 ! queue !
                                        videoflip method=horizontal-flip !
                                        videoscale add-borders=1 ! """+flip+"""
@@ -51,26 +51,26 @@ class Webcam:
       pipebus.connect ("message", self.pipe1_changed_cb)
 
     def pipe1_changed_cb (self, bus, message):
-        if message.type == gst.MESSAGE_ERROR:
+        if message.type == Gst.MESSAGE_ERROR:
             err, debug = message.parse_error()
             print "Err: %s" % err, debug
-            self.player.set_state(gst.STATE_NULL)
-        if message.type == gst.MESSAGE_EOS:
+            self.player.set_state(Gst.State.NULL)
+        if message.type == Gst.MESSAGE_EOS:
             # The end position is approx the duration
-            self.duration, format = self.element.query_position (gst.FORMAT_TIME,
+            self.duration, format = self.element.query_position (Gst.Format.TIME,
                                                                  None)
             # Null/Stop
-            self.element.set_state (gst.STATE_NULL)
+            self.element.set_state (Gst.State.NULL)
 
     def record (self, start):
       if start == 1:
         print ("Start record")
-        self.element.set_state (gst.STATE_PLAYING)
+        self.element.set_state (Gst.State.PLAYING)
       else:
         print ("stop record")
-        self.element.send_event (gst.event_new_eos ())
+        self.element.send_event (Gst.event_new_eos ())
 
     def get_duration (self):
-        self.duration, format = self.element.query_position (gst.FORMAT_TIME,
+        self.duration, format = self.element.query_position (Gst.Format.TIME,
                                                                  None)
         return self.duration

@@ -19,7 +19,6 @@
 # along with this program; if not, see <http://www.gnu.org/licenses>
 #
 
-import gst
 import time
 
 from datetime import datetime
@@ -28,6 +27,8 @@ from gi.repository import Gtk
 from gi.repository import Gdk
 from gi.repository import GdkX11
 from gi.repository import GUdev
+from gi.repository import Gst
+from gi.repository import GstVideo
 Gdk.threads_init ()
 
 class mode:
@@ -48,6 +49,8 @@ class NewRecording:
         self.primarySourceWidth = 0
         self.secondarySourceHeight = 0
         self.secondarySourceWidth = 0
+
+        self.xid = 0
 
         self.dialog = Gtk.Dialog ("Create recoding",
                                   mainWindow,
@@ -114,6 +117,7 @@ class NewRecording:
 
         contentArea.show_all ()
 
+
         self.samePrimaryAlert.hide ()
         self.sameSecondaryAlert.hide ()
 
@@ -128,12 +132,12 @@ class NewRecording:
 
         self.secondarySource = "/dev/"+deviceName
 
-        self.player.set_state (gst.STATE_READY)
+        self.player.set_state (Gst.State.READY)
 
         if (self.mode == mode.TWOCAM):
             cam1 = self.player.get_by_name ("cam1")
             cam1.set_locked_state (False)
-            cam1.set_state (gst.STATE_NULL)
+            cam1.set_state (Gst.State.NULL)
             # Avoid both being set by locking the other source in a null state
             if (self.secondarySource == self.primarySource):
                 cam1.set_locked_state (True)
@@ -142,11 +146,11 @@ class NewRecording:
 
         cam2 = self.player.get_by_name ("cam2")
         cam2.set_locked_state (False)
-        cam2.set_state (gst.STATE_NULL)
+        cam2.set_state (Gst.State.NULL)
 
         cam2.set_property ("device", self.secondarySource)
 
-        self.player.set_state (gst.STATE_PLAYING)
+        self.player.set_state (Gst.State.PLAYING)
 
 
     def primary_capture_changed (self, combo):
@@ -166,7 +170,7 @@ class NewRecording:
             self.video_preview_webcam_webcam ()
 
         self.primarySource = "/dev/"+deviceName
-        self.player.set_state (gst.STATE_READY)
+        self.player.set_state (Gst.State.READY)
 
         cam2 = self.player.get_by_name ("cam2")
         cam1 = self.player.get_by_name ("cam1")
@@ -174,8 +178,8 @@ class NewRecording:
         cam2.set_locked_state (False)
         cam1.set_locked_state (False)
 
-        cam2.set_state (gst.STATE_NULL)
-        cam1.set_state (gst.STATE_NULL)
+        cam2.set_state (Gst.State.NULL)
+        cam1.set_state (Gst.State.NULL)
 
         # Avoid both being set by locking the other source in a null state
         if (self.secondarySource == self.primarySource):
@@ -185,15 +189,17 @@ class NewRecording:
 
         cam1.set_property ("device", self.primarySource)
 
-        self.player.set_state (gst.STATE_PLAYING)
+        self.player.set_state (Gst.State.PLAYING)
 
     def window_real (self,wef2):
         self.video_preview_screencast_webcam ()
+        self.xid = self.playerWindow.get_property ('window').get_xid ()
+        self.player.set_state(Gst.State.PLAYING)
 
     def video_preview_screencast_webcam (self):
 
         if (self.player):
-            self.player.set_state(gst.STATE_NULL)
+            self.player.set_state(Gst.State.NULL)
 
         self.mode = mode.SCREENCAST
 
@@ -212,7 +218,7 @@ class NewRecording:
         posXStr = str (self.posX)
 
 
-        self.player = gst.parse_launch ("""v4l2src device=/dev/video0 name="cam2" !
+        self.player = Gst.parse_launch ("""v4l2src device=/dev/video0 name="cam2" !
                                        videoscale ! queue ! videoflip
                                        method=horizontal-flip !
                                        video/x-raw-yuv,height=240,framerate=15/1
@@ -224,21 +230,21 @@ class NewRecording:
                                        videoscale ! video/x-raw-rgb,framerate=15/1 ! ffmpegcolorspace ! video/x-raw-yuv ! mix.""")
 
 
-        self.player.set_state(gst.STATE_PLAYING)
 
         bus = self.player.get_bus()
         bus.add_signal_watch()
         bus.enable_sync_message_emission()
-        self.busSig1 = bus.connect("message", self.on_message)
-        self.busSig2 = bus.connect("sync-message::element",
-                                   self.on_sync_message)
+        self.busSig1 = bus.connect("message::error", self.on_message_error)
+        self.busSig2 = bus.connect("sync-message::element",  self.on_sync_message)
+
+        self.player.set_state(Gst.State.PLAYING)
 
     def video_preview_webcam_webcam (self):
 
         self.mode = mode.TWOCAM
 
         if (self.player):
-            self.player.set_state(gst.STATE_NULL)
+            self.player.set_state(Gst.State.NULL)
 
 
         self.primarySourceHeight = 768
@@ -249,7 +255,7 @@ class NewRecording:
         self.posY = 528
         self.posX = 704
 
-        self.player = gst.parse_launch ("""
+        self.player = Gst.parse_launch ("""
                         v4l2src device=/dev/video0 name="cam2" ! queue !
                         videoflip method=horizontal-flip !
                         videoscale  add-borders=1 !
@@ -265,39 +271,34 @@ class NewRecording:
                         mix.
                                         """)
 
-        self.player.set_state(gst.STATE_PLAYING)
+        self.player.set_state(Gst.State.PLAYING)
 
         bus = self.player.get_bus()
         bus.add_signal_watch()
+        self.busSig1 = bus.connect("message::error", self.on_message_error)
+        self.busSig2 = bus.connect("sync-message::element", self.on_sync_message)
+
         bus.enable_sync_message_emission()
-        self.busSig1 = bus.connect("message", self.on_message)
-        self.busSig2 = bus.connect("sync-message::element",
-                                   self.on_sync_message)
 
-
-    def on_message(self, bus, message):
-        t = message.type
-        if t == gst.MESSAGE_EOS:
-            self.player.set_state(gst.STATE_NULL)
-        elif t == gst.MESSAGE_ERROR:
-            self.player.set_state(gst.STATE_NULL)
+    def on_message_error (self, bus, message):
             err, debug = message.parse_error()
             print "Err: %s" % err, debug
 
     def on_sync_message(self, bus, message):
+        print ("sync message")
         if message.structure is None:
             return
         message_name = message.structure.get_name()
-        if message_name == "prepare-xwindow-id":
+        print (message_name)
+        if message_name == "prepare-window-handle":
             imagesink = message.src
 
             Gdk.threads_enter()
-
             # Sync with the X server before giving the X-id to the sink
             Gdk.get_default_root_window ().get_display ().sync ()
-            xid = self.playerWindow.get_window ().get_xid()
             imagesink.set_property("force-aspect-ratio", True)
-            imagesink.set_xwindow_id (xid)
+            print ("xid %", self.xid)
+            imagesink.set_window_handle (self.xid)
 
             Gdk.threads_leave ()
 
@@ -316,8 +317,8 @@ class NewRecording:
         if (cam1 != None):
             cam1.set_locked_state (False)
 
-        self.player.set_state (gst.STATE_NULL)
-        self.player.get_state (gst.STATE_NULL)
+        self.player.set_state (Gst.State.NULL)
+        self.player.get_state (Gst.State.NULL)
         self.player = None
 
     def open (self):

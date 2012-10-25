@@ -30,12 +30,13 @@ except ImportError:
 from gi.repository import GLib
 from gi.repository import Gdk
 from gi.repository import Gio
+from gi.repository import Gst
 
-try:
-    import gst
-except ImportError:
-    print ("Err: Python gst not found try installing python-gst or similar")
-    exit ()
+#try:
+#    import Gst
+#except ImportError:
+#    print ("Err: Python Gst not found try installing python-Gst or similar")
+#    exit ()
 
 import time
 import shutil
@@ -476,4 +477,5 @@ class dutMain:
 
 def main ():
     dutMain()
+    Gst.init(None)
     Gtk.main()
