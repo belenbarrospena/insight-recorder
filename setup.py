@@ -13,6 +13,6 @@ setup(name='Dawati user testing',
       url='http://github.com/dawati/dawati-user-testing',
       packages=['dut'],
       package_dir={'dut': 'src/dut'},
-#      package_data={'turbine': ['*.xml']},
+#      package_data={'none yet': ['*.xml']},
       scripts=['dawati-user-testing'],
 )
