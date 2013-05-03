@@ -19,20 +19,19 @@
 # along with this program; if not, see <http://www.gnu.org/licenses>
 #
 
-import gst
 
+from gi.repository import Gst
 
 class Screencast:
     def __init__(self, fileOutputLocation, recording_finished_func):
 
       self.duration = 0
-      self.element = gst.parse_launch ("""ximagesrc use-damage=false
-                                       do-timestamp=true ! queue ! videorate
-                                       force-fps=15/1 !
-                                       video/x-raw-rgb,framerate=15/1 !
-                                       ffmpegcolorspace !
-                                       video/x-raw-yuv,framerate=15/1 ! vp8enc
-                                       quality=8 threads=2 speed=2 mode=1 !
+      self.element = Gst.parse_launch ("""ximagesrc use-damage=false
+                                       do-timestamp=true ! queue !
+                                       video/x-raw,framerate=15/1 !
+                                       videoconvert !
+                                       video/x-raw,framerate=15/1 ! vp8enc
+                                       threads=2 !
                                        queue ! webmmux !
                                        filesink buffer-mode=unbuffered
                                        location="""+fileOutputLocation+"""""")
@@ -45,25 +44,25 @@ class Screencast:
       pipebus.connect ("message", self.pipe1_changed_cb)
 
     def pipe1_changed_cb (self, bus, message):
-        if message.type == gst.MESSAGE_ERROR:
+        if message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             print "Error: %s" % err, debug
-            self.player.set_state (gst.STATE_NULL)
-        if message.type == gst.MESSAGE_EOS:
+            self.player.set_state (Gst.State.NULL)
+        if message.type == Gst.MessageType.EOS:
             # The end position is approx the duration
-            self.duration, format = self.element.query_position (gst.FORMAT_TIME,
+            self.duration, format = self.element.query_position (Gst.FORMAT_TIME,
                                                                  None)
             # Null/Stop
-            self.element.set_state (gst.STATE_NULL)
+            self.element.set_state (Gst.State.NULL)
             self.recording_finished_func ()
 
     def record (self, start):
       if start == 1:
         print ("Start screencast record")
-        self.element.set_state (gst.STATE_PLAYING)
+        self.element.set_state (Gst.State.PLAYING)
       else:
         print ("stop screencast record")
-        self.element.send_event (gst.event_new_eos ())
+        self.element.send_event (Gst.Event.new_eos ())
 
 
     def get_duration (self):

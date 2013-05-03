@@ -19,7 +19,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses>
 #
 
-import gst
+from gi.repository import Gst
 
 class Muxer:
     def __init__(self, projectDir, posX, posY):
@@ -49,7 +49,7 @@ class Muxer:
       vp8dec ! videorate force-fps=15/1 ! videoscale add-borders=1 !
       video/x-raw-yuv,framerate=15/1 ! mix."""
 
-      self.element = gst.parse_launch (gstPipe)
+      self.element = Gst.parse_launch (gstPipe)
 
       pipebus = self.element.get_bus ()
 
@@ -64,7 +64,7 @@ class Muxer:
       matroskademux ! video/x-vp8 ! queue ! outmux.video_0 webmmux
       name=outmux ! filesink location="""+finalLocation+""""""
 
-      self.element2 = gst.parse_launch (gstPipe)
+      self.element2 = Gst.parse_launch (gstPipe)
 
       pipebus2 = self.element2.get_bus ()
 
@@ -73,24 +73,24 @@ class Muxer:
 
 
     def pipe2_changed_cb (self, bus, message):
-      if message.type == gst.MESSAGE_ERROR:
+      if message.type == Gst.MessageType.ERROR:
           err, debug = message.parse_error()
           print ("Err: isrMux pipe2: %s" % err, debug)
 
-      if message.type == gst.MESSAGE_EOS:
+      if message.type == Gst.MessageType.EOS:
           print ("Info: Second pass done")
 
     def pipe1_changed_cb (self, bus, message):
-      if message.type == gst.MESSAGE_EOS:
+      if message.type == Gst.MessageType.EOS:
           print ("Info: Done first pass, starting second pass")
-          self.element2.set_state (gst.STATE_PLAYING)
-      if message.type == gst.MESSAGE_ERROR:
+          self.element2.set_state (Gst.State.PLAYING)
+      if message.type == Gst.MessageType.ERROR:
           err, debug = message.parse_error()
           print ("Err: isrMux pipe1: %s" % err, debug)
 
     def pipe_report (self):
-        positionMs, format = self.element.query_position (gst.FORMAT_TIME, None)
-        durationMs, format = self.element.query_duration (gst.FORMAT_TIME, None)
+        positionMs, format = self.element.query_position (Gst.Format.TIME, None)
+        durationMs, format = self.element.query_duration (Gst.Format.TIME, None)
 
         duration = round (durationMs*0.000000001)
         position = round (positionMs*0.000000001)
@@ -100,7 +100,7 @@ class Muxer:
 
         percentDone = int ((position/duration)*100)
 
-        # HACK because sometimes gstreamer gets the duration wrong :(
+        #FIXME
         if percentDone > 100:
             percentDone = 100
 
@@ -111,9 +111,9 @@ class Muxer:
     def record (self, start):
       if start == 1:
         print ("Start mux record")
-        self.element.set_state (gst.STATE_PLAYING)
+        self.element.set_state (Gst.State.PLAYING)
 
-        self.element.get_state (gst.CLOCK_TIME_NONE)
+        self.element.get_state (Gst.CLOCK_TIME_NONE)
       else:
         print ("stop mux record")
         self.element.set_state (3)

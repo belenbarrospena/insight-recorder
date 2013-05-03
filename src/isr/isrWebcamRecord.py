@@ -19,7 +19,8 @@
 # along with this program; if not, see <http://www.gnu.org/licenses>
 #
 
-import gst
+from gi.repository import Gtk
+from gi.repository import Gst
 
 class Webcam:
     def __init__(self, fileOutputLocation, device, width, height, Vflip,
@@ -34,15 +35,14 @@ class Webcam:
       if Vflip == True:
           flip = " videoflip method=vertical-flip !"
 
-      self.element = gst.parse_launch ("""v4l2src device="""+device+""" ! videorate
-                                       force-fps=15/1 ! queue !
+      self.element = Gst.parse_launch ("""v4l2src device="""+device+""" ! queue !
                                        videoflip method=horizontal-flip !
                                        videoscale add-borders=1 ! """+flip+"""
-                                       video/x-raw-yuv,width="""+widthStr+""",
+                                       video/x-raw,width="""+widthStr+""",
                                        height="""+heightStr+""",pixel-aspect-ratio=1/1 !
-                                       vp8enc speed=7 !
+                                       vp8enc !
                                        queue ! mux. alsasrc !
-                                       audio/x-raw-int,rate=48000,channels=1,depth=16 !
+                                       audio/x-raw,rate=48000,channels=1,depth=16 !
                                        queue ! audioconvert ! queue !
                                        vorbisenc ! queue ! mux.
                                        webmmux name=mux ! filesink
@@ -54,25 +54,25 @@ class Webcam:
       pipebus.connect ("message", self.pipe1_changed_cb)
 
     def pipe1_changed_cb (self, bus, message):
-        if message.type == gst.MESSAGE_ERROR:
+        if message.type == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
             print "Err: %s" % err, debug
-            self.player.set_state(gst.STATE_NULL)
-        if message.type == gst.MESSAGE_EOS:
+            self.player.set_state(Gst.State.NULL)
+        if message.type == Gst.MessageType.EOS:
             # The end position is approx the duration
-            self.duration, format = self.element.query_position (gst.FORMAT_TIME,
+            self.duration, format = self.element.query_position (Gst.FORMAT_TIME,
                                                                  None)
             # Null/Stop
-            self.element.set_state (gst.STATE_NULL)
+            self.element.set_state (Gst.State.NULL)
             self.recording_finished_func ()
 
     def record (self, start):
       if start == 1:
         print ("Start record")
-        self.element.set_state (gst.STATE_PLAYING)
+        self.element.set_state (Gst.State.PLAYING)
       else:
         print ("stop record")
-        self.element.send_event (gst.event_new_eos ())
+        self.element.send_event (Gst.Event.new_eos ())
 
     def get_duration (self):
         return self.duration

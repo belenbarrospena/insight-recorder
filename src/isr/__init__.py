@@ -31,9 +31,9 @@ from gi.repository import GLib
 from gi.repository import Gio
 
 try:
-    import gst
+    from gi.repository import Gst
 except ImportError:
-    print ("Err: Python gst not found try installing python-gst or similar")
+    print ("Err: Gst introspection  not found try installing gir1.2-gstreamer-1.0 or similar")
     exit ()
 
 import time
@@ -55,6 +55,8 @@ class m:
 
 class isrMain:
     def __init__(self):
+
+        Gst.init (None)
 
         self.primary = None
         self.secondary = None
@@ -233,26 +235,26 @@ class isrMain:
     def check_gst_elements_available (self):
         message = ""
 
-        # gst-plugins-bad
-        if (gst.element_factory_find ("vp8enc") == None):
+        # Gst plugins-bad
+        if (Gst.ElementFactory.find ("vp8enc") == None):
             message += "Element vp8enc missing: this is normally found in package gstreamer-plugins-bad\n"
-        # gst-plugins-good
-        if (gst.element_factory_find ("videomixer") == None):
+        # Gst plugins-good
+        if (Gst.ElementFactory.find ("videomixer") == None):
             message += "Element videomixer missing: this is normally found in package gstreamer-plugins-good\n"
 
-        # gst-plugins-base
-        if (gst.element_factory_find ("videoscale") == None):
+        # Gst plugins-base
+        if (Gst.ElementFactory.find ("videoscale") == None):
             message += "Element videoscale missing: this is normally found in package gstreamer-plugins-base\n"
 
-        # gst-alsa
-        if (gst.element_factory_find ("alsasrc") == None):
+        # Gst alsa
+        if (Gst.ElementFactory.find ("alsasrc") == None):
             message += "Element alsasrc missing: this is normally found in gstreamer-alsa\n"
 
         if (message == ""):
             return
 
         dialog = Gtk.MessageDialog (self.mainWindow, 0, Gtk.MessageType.ERROR,
-                                   Gtk.ButtonsType.CANCEL,
+                                    Gtk.ButtonsType.CANCEL,
                                     "Required gstreamer element missing")
         dialog.format_secondary_text (message)
 
