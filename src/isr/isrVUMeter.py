@@ -1,6 +1,26 @@
-import gst
-
+#!/usr/bin/env python
+#
+# Script to record webcam and screencast
+#
+# Copyright 2012 Intel Corporation.
+#
+# Author: Michael Wood <michael.g.wood@intel.com>
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU Lesser General Public License,
+# version 2.1, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses>
+#
 from gi.repository import Gtk
+from gi.repository import Gst
+from gi.repository import GLib
 
 
 def clamp(x, min, max):
@@ -20,7 +40,7 @@ class VUMeter (Gtk.DrawingArea):
 
         pipeline = "alsasrc ! level message=true ! fakesink sync=true"
 
-        self.element = gst.parse_launch (pipeline)
+        self.element = Gst.parse_launch (pipeline)
 
         pipebus = self.element.get_bus ()
         pipebus.add_signal_watch ()
@@ -66,7 +86,7 @@ class VUMeter (Gtk.DrawingArea):
     def set_active (self, state):
 
         if (state):
-            self.element.set_state (gst.STATE_PLAYING)
+            self.element.set_state (Gst.State.PLAYING)
         else:
-            self.element.set_state (gst.STATE_NULL)
+            self.element.set_state (Gst.State.NULL)
 
